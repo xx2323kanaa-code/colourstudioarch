@@ -1,52 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Colorful Custom Hand AI Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- 外部CSS -->
   <link rel="stylesheet" href="style.css">
 
-  <!-- MediaPipe / TF.js Detector -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js"></script>
+  <!-- TensorFlow.js & COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 </head>
 
 <body>
 
 <!-- ============================
-      Top Header
-============================= -->
+     Studio Header
+============================ -->
 <header id="topHeader">
   <div id="titleArea">
-    <h1>ColorStudio ARCH – Demo</h1>
+    <h1>Colorful Custom Hand AI Project</h1>
     <div id="languageLabel">Display language: English</div>
   </div>
 
-  <!-- 右側の折りたたみメニュー -->
+  <!-- 折りたたみメニュー -->
   <div id="menuWrapper">
     <button id="menuToggle">≡</button>
-
     <div id="menuPanel" class="hidden">
 
       <div class="menu-section">
         <h3>Camera</h3>
         <select id="cameraSelect">
           <option value="front">Front camera</option>
-          <option value="environment">Back camera</option>
+          <option value="back0">Back camera 0</option>
+          <option value="back1">Back camera 1</option>
+          <option value="back2">Back camera 2</option>
+          <option value="back3">Back camera 3</option>
         </select>
       </div>
 
       <div class="menu-section">
         <h3>Max Results (1–3)</h3>
-        <input type="range" id="maxResults" min="1" max="3" value="1">
-        <span id="maxResultsValue">1</span>
+        <input type="range" id="maxResults" min="1" max="3" value="3">
+        <span id="maxResultsValue">3</span>
       </div>
 
       <div class="menu-section">
         <h3>Score Threshold</h3>
-        <input type="range" id="scoreSlider" min="2" max="30" value="15">
-        <span id="scoreValue">15 %</span>
+        <input type="range" id="scoreSlider" min="2" max="30" value="10">
+        <span id="scoreValue">10 %</span>
       </div>
 
       <div class="menu-section">
@@ -55,8 +58,8 @@
       </div>
 
       <div class="menu-section">
-        <h3>Model</h3>
-        <div>MediaPipe Object Detector</div>
+        <h3>Detector</h3>
+        <div>COCO-SSD Lite</div>
       </div>
 
     </div>
@@ -64,17 +67,17 @@
 </header>
 
 <!-- ============================
-      Main Application Area
-============================= -->
+     Main App Container
+============================ -->
 <div id="appContainer">
 
-  <!-- === VIDEO + SVG Overlay === -->
   <div id="videoWrapper">
     <video id="video" autoplay playsinline></video>
-
-    <!-- Hand Overlay SVG (ARCH style, 全モデル収録) -->
     <svg id="overlaySvg" viewBox="0 0 220 220" preserveAspectRatio="xMidYMid meet">
-      <!-- Relaxed -->
+
+      <!-- ============================
+           Relaxed Hand
+      ============================ -->
       <g id="handRelaxed" class="hand-svg active">
         <g>
           <rect x="80" y="90" width="60" height="70" rx="20" ry="20" class="palm-line"/>
@@ -82,25 +85,26 @@
           <circle cx="110" cy="160" r="4" fill="#ccc"/>
         </g>
         <g>
-          <line x1="88" y1="115" x2="70" y2="125" stroke="#ccc" stroke-width="3"/>
+          <line x1="88" y1="115" x2="70" y2="125" stroke="#ccc" stroke-width="3" fill="none"/>
           <circle cx="88" cy="115" r="4" fill="#ccc"/>
           <circle cx="70" cy="125" r="4" fill="#ccc"/>
-          <line x1="96" y1="90" x2="96" y2="65" stroke="#ccc" stroke-width="3"/>
+          <line x1="96" y1="90" x2="96" y2="65" stroke="#ccc" stroke-width="3" fill="none"/>
           <circle cx="96" cy="90" r="4" fill="#ccc"/>
           <circle cx="96" cy="65" r="4" fill="#ccc"/>
-          <line x1="110" y1="88" x2="110" y2="60" stroke="#ccc" stroke-width="3"/>
+          <line x1="110" y1="88" x2="110" y2="60" stroke="#ccc" stroke-width="3" fill="none"/>
           <circle cx="110" cy="88" r="4" fill="#ccc"/>
           <circle cx="110" cy="60" r="4" fill="#ccc"/>
-          <line x1="124" y1="90" x2="124" y2="66" stroke="#ccc" stroke-width="3"/>
+          <line x1="124" y1="90" x2="124" y2="66" stroke="#ccc" stroke-width="3" fill="none"/>
           <circle cx="124" cy="90" r="4" fill="#ccc"/>
           <circle cx="124" cy="66" r="4" fill="#ccc"/>
-          <line x1="136" y1="96" x2="140" y2="75" stroke="#ccc" stroke-width="3"/>
+          <line x1="136" y1="96" x2="140" y2="75" stroke="#ccc" stroke-width="3" fill="none"/>
           <circle cx="136" cy="96" r="4" fill="#ccc"/>
           <circle cx="140" cy="75" r="4" fill="#ccc"/>
         </g>
       </g>
+
       <!-- ============================
-           PEN
+           Pen Grip
       ============================ -->
       <g id="handPen" class="hand-svg">
         <g>
@@ -108,6 +112,7 @@
           <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
           <circle cx="110" cy="160" r="4" fill="#ccc"/>
         </g>
+
         <g id="penFingers">
           <line x1="100" y1="100" x2="102" y2="70" class="finger"/>
           <circle cx="100" cy="100" r="4" class="finger-joint"/>
@@ -134,7 +139,7 @@
       </g>
 
       <!-- ============================
-           PHONE
+           Phone Hold
       ============================ -->
       <g id="handPhone" class="hand-svg">
         <g>
@@ -143,6 +148,7 @@
           <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
           <circle cx="110" cy="160" r="4" fill="#ccc"/>
         </g>
+
         <g id="phoneFingers">
           <line x1="90" y1="130" x2="90" y2="110" class="finger"/>
           <circle cx="90" cy="130" r="4" class="finger-joint"/>
@@ -167,7 +173,7 @@
       </g>
 
       <!-- ============================
-           KEY
+           KEY (ARCH 完全修復)
       ============================ -->
       <g id="handKey" class="hand-svg">
         <g>
@@ -175,14 +181,15 @@
           <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
           <circle cx="110" cy="160" r="4" fill="#ccc"/>
         </g>
+
         <g id="keyFingers">
           <line x1="108" y1="100" x2="132" y2="102" class="finger"/>
           <circle cx="108" cy="100" r="4" class="finger-joint"/>
           <circle cx="132" cy="102" r="4" class="finger-joint"/>
 
           <line x1="110" y1="108" x2="135" y2="112" class="finger"/>
-          <circle cx="110" y1="108" r="4" class="finger-joint"/>
-          <circle cx="135" y1="112" r="4" class="finger-joint"/>
+          <circle cx="110" cy="108" r="4" class="finger-joint"/>
+          <circle cx="135" cy="112" r="4" class="finger-joint"/>
 
           <line x1="112" y1="118" x2="132" y2="122" class="finger"/>
           <circle cx="112" cy="118" r="4" class="finger-joint"/>
@@ -203,7 +210,7 @@
           <rect x="90" y="80" width="50" height="70" rx="12" ry="12" class="salute-palm"/>
         </g>
         <g>
-          <line x1="96" y1="80"  x2="96"  y2="40" class="salute-line"/>
+          <line x1="96" y1="80" x2="96" y2="40" class="salute-line"/>
           <line x1="106" y1="80" x2="106" y2="40" class="salute-line"/>
           <line x1="116" y1="80" x2="116" y2="40" class="salute-line"/>
           <line x1="126" y1="80" x2="126" y2="40" class="salute-line"/>
@@ -213,18 +220,17 @@
       </g>
 
       <!-- HUD -->
-      <text id="overlayHud" x="110" y="210" text-anchor="middle">waiting…</text>
+      <text id="overlayHud" x="110" y="210" text-anchor="middle">COCO-SSD Loaded</text>
     </svg>
   </div>
 
-  <!-- ============================
-       Result + Buttons
-  ============================ -->
+  <!-- Result Text -->
   <div id="resultArea">
-    <div id="result">State: RELAXED (no object)</div>
-    <div id="status">Lock = x2 finger width / Mini-Open resets / Relax resumes detection</div>
+    <div id="result">State: RELAXED</div>
+    <div id="status">Ready</div>
   </div>
 
+  <!-- ARCH Buttons -->
   <div id="controlPanel">
     <button id="simNone" class="sim-btn">None</button>
     <button id="simPen" class="sim-btn">Pen</button>
@@ -232,156 +238,21 @@
     <button id="simKey" class="sim-btn">Key</button>
     <button id="simSalute" class="sim-btn">Salute</button>
 
-    <br />
+    <br>
 
     <button id="miniOpenBtn">Mini-Open</button>
     <button id="lockBtn">Lock</button>
-    <button id="relaxBtn">Full Relax</button>
+    <button id="relaxBtn">Relax</button>
 
-    <br />
-    <button id="startCameraBtn">Start Camera</button>
+    <br>
+
+    <button id="startCameraBtn">Start / Retry Camera</button>
   </div>
 
-</div><!-- appContainer end -->
+</div>
 
-<!-- ============================
-      SCRIPT (Detector + Logic)
-============================= -->
-<script>
-/* -------------------------------
-   MediaPipe Detector Loading
---------------------------------*/
-let detector = null;
-let detectRunning = false;
-let freezeUntil = 0;
-let lockActive = false;
-
-// 対象は PEN / PHONE / KEY の3種類だけ
-const TARGET_LABELS = ["pen", "cell phone", "key"];
-
-/* -------------------------------
-   カメラ選択
---------------------------------*/
-async function startCamera() {
-  const mode = document.getElementById("cameraSelect").value;
-  let facing = "user";
-  if (mode === "environment") facing = "environment";
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing }
-  });
-
-  const video = document.getElementById("video");
-  video.srcObject = stream;
-  await video.play();
-
-  if (!detectRunning) {
-    detectRunning = true;
-    requestAnimationFrame(loopDetection);
-  }
-}
-
-/* -------------------------------
-   Hand SVG 切り替え
---------------------------------*/
-function setState(name) {
-  const result = document.getElementById("result");
-  const ids = ["handRelaxed","handPen","handPhone","handKey","handSalute"];
-  ids.forEach(id => document.getElementById(id).classList.remove("active"));
-
-  if      (name === "pen")   document.getElementById("handPen").classList.add("active");
-  else if (name === "phone") document.getElementById("handPhone").classList.add("active");
-  else if (name === "key")   document.getElementById("handKey").classList.add("active");
-  else if (name === "salute")document.getElementById("handSalute").classList.add("active");
-  else                       document.getElementById("handRelaxed").classList.add("active");
-
-  result.textContent =
-    name === "none" ? "State: RELAXED"
-    : name === "salute" ? "State: SALUTE"
-    : `State: ${name.toUpperCase()}`;
-}
-
-/* -------------------------------
-   Object Detection Main Loop
---------------------------------*/
-async function loopDetection() {
-  const now = performance.now();
-  if (now < freezeUntil) {
-    requestAnimationFrame(loopDetection);
-    return;
-  }
-  if (lockActive) {
-    requestAnimationFrame(loopDetection);
-    return;
-  }
-
-  const video = document.getElementById("video");
-
-  const detections = detector.detectForVideo(video, now);
-  let found = "none";
-
-  for (const d of detections.detections) {
-    if (TARGET_LABELS.includes(d.categories[0].categoryName)) {
-      found = d.categories[0].categoryName;
-      break;
-    }
-  }
-
-  if (found === "cell phone") found = "phone";
-
-  setState(found);
-  document.getElementById("overlayHud").textContent = found;
-
-  if (found !== "none") {
-    freezeUntil = now + 300;
-  }
-
-  requestAnimationFrame(loopDetection);
-}
-
-/* -------------------------------
-   Load Detector
---------------------------------*/
-async function initDetector() {
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-  );
-  detector = await ObjectDetector.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-assets/object_detector.tflite" },
-    scoreThreshold: 0.15,
-    maxResults: 1
-  });
-}
-initDetector();
-
-/* -------------------------------
-   Buttons
---------------------------------*/
-document.getElementById("menuToggle").onclick = () => {
-  document.getElementById("menuPanel").classList.toggle("hidden");
-};
-document.getElementById("startCameraBtn").onclick = startCamera;
-
-document.getElementById("simNone").onclick   = () => setState("none");
-document.getElementById("simPen").onclick    = () => setState("pen");
-document.getElementById("simPhone").onclick  = () => setState("phone");
-document.getElementById("simKey").onclick    = () => setState("key");
-document.getElementById("simSalute").onclick = () => setState("salute");
-
-document.getElementById("lockBtn").onclick = () => {
-  lockActive = true;
-  freezeUntil = performance.now() + 1500;
-};
-
-document.getElementById("miniOpenBtn").onclick = () => {
-  lockActive = false;
-};
-
-document.getElementById("relaxBtn").onclick = () => {
-  lockActive = false;
-  setState("none");
-};
-</script>
+<!-- 外部JS -->
+<script src="app.js"></script>
 
 </body>
 </html>
