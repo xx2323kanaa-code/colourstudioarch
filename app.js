@@ -1,341 +1,278 @@
 /* ============================================================
    Colorful Custom Hand AI Project
-   app.js  ——  MediaPipe + ARCH 統合版
-
-   田村さん専用：
-   - 5Hz 推論
-   - 3/5 確定ルール
-   - Freeze（2秒）
-   - Lock / MiniOpen / Relax
-   - Simulation
-   - Pen / Phone / Key / Egg / Basic 分類
-   - ARCH 手ポーズ切り替え
+   COCO-SSD version + ARCH Grip Logic
 ============================================================ */
 
-let video = document.getElementById("video");
-let resultEl = document.getElementById("result");
-let statusEl = document.getElementById("status");
+/* ============================
+   UI Elements
+============================ */
+const video = document.getElementById("video");
+const overlayHud = document.getElementById("overlayHud");
+const resultEl = document.getElementById("result");
+const statusEl = document.getElementById("status");
 
-let startBtn = document.getElementById("startCameraBtn");
-
-// ====== 手SVG（ARCH） ======
-const handRelaxed = document.getElementById("handRelaxed");
-const handPen     = document.getElementById("handPen");
-const handPhone   = document.getElementById("handPhone");
-const handKey     = document.getElementById("handKey");
-const handSalute  = document.getElementById("handSalute");
-
-const penFingers   = document.getElementById("penFingers");
-const phoneFingers = document.getElementById("phoneFingers");
-const keyFingers   = document.getElementById("keyFingers");
-const phoneRect    = document.getElementById("phoneRect");
-
-// ====== Simulation Buttons ======
-const simNoneBtn   = document.getElementById("simNone");
-const simPenBtn    = document.getElementById("simPen");
-const simPhoneBtn  = document.getElementById("simPhone");
-const simKeyBtn    = document.getElementById("simKey");
+const simNoneBtn = document.getElementById("simNone");
+const simPenBtn = document.getElementById("simPen");
+const simPhoneBtn = document.getElementById("simPhone");
+const simKeyBtn = document.getElementById("simKey");
 const simSaluteBtn = document.getElementById("simSalute");
 
-// ====== Action Buttons ======
-const miniOpenBtn  = document.getElementById("miniOpenBtn");
-const lockBtn      = document.getElementById("lockBtn");
-const relaxBtn     = document.getElementById("relaxBtn");
+const miniOpenBtn = document.getElementById("miniOpenBtn");
+const lockBtn = document.getElementById("lockBtn");
+const relaxBtn = document.getElementById("relaxBtn");
 
-// ====== Studio-style UI ======
-const cameraSelect     = document.getElementById("cameraSelect");
+const startBtn = document.getElementById("startCameraBtn");
+
+const menuToggle = document.getElementById("menuToggle");
+const menuPanel = document.getElementById("menuPanel");
+
+const cameraSelect = document.getElementById("cameraSelect");
 const maxResultsSlider = document.getElementById("maxResults");
-const scoreSlider      = document.getElementById("scoreSlider");
-const scoreValue       = document.getElementById("scoreValue");
-const maxResultsValue  = document.getElementById("maxResultsValue");
+const maxResultsValue = document.getElementById("maxResultsValue");
+const scoreSlider = document.getElementById("scoreSlider");
+const scoreValue = document.getElementById("scoreValue");
 
+/* ============================
+   SVG Hands
+============================ */
+const handRelaxed = document.getElementById("handRelaxed");
+const handPen = document.getElementById("handPen");
+const handPhone = document.getElementById("handPhone");
+const handKey = document.getElementById("handKey");
+const handSalute = document.getElementById("handSalute");
+
+const penFingers = document.getElementById("penFingers");
+const phoneFingers = document.getElementById("phoneFingers");
+const keyFingers = document.getElementById("keyFingers");
+
+/* ============================
+   GLOBAL STATE
+============================ */
+let stream = null;
 let detector = null;
+let analyzing = false;
 
-// ====== Camera Handling ======
-let currentStream = null;
-let deviceIds = {
-  front: null,
-  back0: null,
-  back1: null,
-  back2: null,
-  back3: null
-};
-
-// ====== Processing parameters ======
-const FRAME_INTERVAL = 200;   // 5Hz
-const FREEZE_MS = 2000;
-
-// 推論履歴（直近5フレーム）
-let history = [];
-const HISTORY_SIZE = 5;
-
-// freeze管理
+let lockActive = false;
 let freezeUntil = 0;
 
-// ロック
-let lockActive = false;
+let lastDetections = [];  
+let detectionHistory = []; // 5-frame buffer
 
-// ====== 初期化：MediaPipe ObjectDetector をロード ======
+let logicalState = "none";
 
-async function initDetector() {
-  if (detector) return;
+/* ============================
+   MENU TOGGLE
+============================ */
+menuToggle.addEventListener("click", () => {
+  menuPanel.classList.toggle("hidden");
+});
 
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/wasm"
-  );
+/* ============================
+   Helper: Activate Hand
+============================ */
+function allHands() {
+  return [handRelaxed, handPen, handPhone, handKey, handSalute];
+}
+function activateHand(target) {
+  allHands().forEach(h => h.classList.remove("active"));
+  target.classList.add("active");
+}
 
-  detector = await ObjectDetector.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/object_detector/object_detector/float16/1/object_detector.tflite"
-    },
-    maxResults: 1,
-    scoreThreshold: 0.15
+/* ============================
+   Reset visuals
+============================ */
+function resetAllVisuals() {
+  handRelaxed.classList.remove("relaxed-locked");
+  [penFingers, phoneFingers, keyFingers].forEach(grp => {
+    if (grp) grp.classList.remove("locked-fingers");
   });
-
-  statusEl.textContent = "Model loaded.";
 }
 
-// ============================================================
-// カメラ切替
-// ============================================================
-
-async function enumerateCameras() {
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  let backs = [];
-
-  devices.forEach(d => {
-    if (d.kind === "videoinput") {
-      if (d.label.toLowerCase().includes("front")) {
-        if (!deviceIds.front) deviceIds.front = d.deviceId;
-      } else if (d.label.toLowerCase().includes("back")) {
-        backs.push(d.deviceId);
-      } else {
-        backs.push(d.deviceId);
-      }
-    }
-  });
-
-  deviceIds.back0 = backs[0] || null;
-  deviceIds.back1 = backs[1] || null;
-  deviceIds.back2 = backs[2] || null;
-  deviceIds.back3 = backs[3] || null;
-}
-
-async function startCamera() {
-  try {
-    if (currentStream) {
-      currentStream.getTracks().forEach(t => t.stop());
-    }
-
-    statusEl.textContent = "Requesting camera...";
-
-    let selected = cameraSelect.value;
-    let devId = deviceIds[selected];
-
-    let constraints = devId
-      ? { video: { deviceId: { exact: devId } } }
-      : { video: true };
-
-    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = currentStream;
-
-    statusEl.textContent = "Camera started.";
-  } catch (e) {
-    statusEl.textContent = "Camera error: " + e;
-  }
-}
-
-// ============================================================
-// ARCH 手の切替
-// ============================================================
-
-function activateHand(el) {
-  [handRelaxed, handPen, handPhone, handKey, handSalute].forEach(h =>
-    h.classList.remove("active")
-  );
-  el.classList.add("active");
-}
-
+/* ============================
+   Show states
+============================ */
 function showRelaxed() {
-  if (!lockActive) {
-    activateHand(handRelaxed);
-    resultEl.textContent = "State: RELAXED";
-  }
+  logicalState = "none";
+  activateHand(handRelaxed);
+  resultEl.textContent = "State: RELAXED";
 }
 
 function showPen() {
-  if (!lockActive) {
-    activateHand(handPen);
-    resultEl.textContent = "State: PEN";
-  }
+  logicalState = "pen";
+  activateHand(handPen);
+  resultEl.textContent = "State: PEN detected";
 }
 
 function showPhone() {
-  if (!lockActive) {
-    activateHand(handPhone);
-    resultEl.textContent = "State: PHONE";
-  }
+  logicalState = "phone";
+  activateHand(handPhone);
+  resultEl.textContent = "State: PHONE detected";
 }
 
 function showKey() {
-  if (!lockActive) {
-    activateHand(handKey);
-    resultEl.textContent = "State: KEY";
-  }
+  logicalState = "key";
+  activateHand(handKey);
+  resultEl.textContent = "State: KEY detected";
 }
 
 function showSalute() {
+  logicalState = "salute";
   activateHand(handSalute);
-  resultEl.textContent = "State: SALUTE";
+  resultEl.textContent = "State: Salute (simulation)";
 }
 
-// ============================================================
-// ロック・MiniOpen・Relax
-// ============================================================
+/* ============================
+   SIMULATION BUTTONS
+============================ */
 
-lockBtn.addEventListener("click", () => {
+simNoneBtn.onclick = () => { resetAllVisuals(); freezeUntil=0; showRelaxed(); };
+simPenBtn.onclick = () => { resetAllVisuals(); freezeUntil = performance.now()+1000; showPen(); };
+simPhoneBtn.onclick=()=>{ resetAllVisuals(); freezeUntil = performance.now()+1000; showPhone(); };
+simKeyBtn.onclick  =()=>{ resetAllVisuals(); freezeUntil = performance.now()+1000; showKey(); };
+simSaluteBtn.onclick=()=>{ resetAllVisuals(); freezeUntil = performance.now()+1000; showSalute(); };
+
+/* ============================
+   Lock / Mini-open / Relax
+============================ */
+
+lockBtn.onclick = () => {
   lockActive = true;
   lockBtn.textContent = "Lock (ON)";
-  resultEl.textContent += " [LOCKED]";
+  statusEl.textContent = "Lock active: recognition paused.";
 
-  if (handPen.classList.contains("active")) penFingers.classList.add("locked-fingers");
-  if (handPhone.classList.contains("active")) phoneFingers.classList.add("locked-fingers");
-  if (handKey.classList.contains("active")) keyFingers.classList.add("locked-fingers");
-  if (handRelaxed.classList.contains("active"))
-    handRelaxed.classList.add("relaxed-locked");
-});
+  if (logicalState === "pen") penFingers.classList.add("locked-fingers");
+  else if (logicalState === "phone") phoneFingers.classList.add("locked-fingers");
+  else if (logicalState === "key") keyFingers.classList.add("locked-fingers");
+  else if (logicalState === "none") handRelaxed.classList.add("relaxed-locked");
+};
 
-miniOpenBtn.addEventListener("click", () => {
+miniOpenBtn.onclick = () => {
   if (!lockActive) return;
+  resetAllVisuals();
+  statusEl.textContent = "Mini-open: thickness reset.";
+};
 
-  penFingers.classList.remove("locked-fingers");
-  phoneFingers.classList.remove("locked-fingers");
-  keyFingers.classList.remove("locked-fingers");
-  handRelaxed.classList.remove("relaxed-locked");
-});
-
-relaxBtn.addEventListener("click", () => {
+relaxBtn.onclick = () => {
   lockActive = false;
   lockBtn.textContent = "Lock";
-
-  penFingers.classList.remove("locked-fingers");
-  phoneFingers.classList.remove("locked-fingers");
-  keyFingers.classList.remove("locked-fingers");
-  handRelaxed.classList.remove("relaxed-locked");
-
+  resetAllVisuals();
   showRelaxed();
-});
+  freezeUntil = 0;
+  statusEl.textContent = "Relax: unlocked.";
+};
 
-// ============================================================
-// シミュレーション
-// ============================================================
+/* ============================
+   CAMERA START
+============================ */
 
-simNoneBtn.addEventListener("click", () => showRelaxed());
-simPenBtn.addEventListener("click", () => showPen());
-simPhoneBtn.addEventListener("click", () => showPhone());
-simKeyBtn.addEventListener("click", () => showKey());
-simSaluteBtn.addEventListener("click", () => showSalute());
+async function startCamera() {
+  if (stream) stream.getTracks().forEach(t=>t.stop());
 
-// ============================================================
-// MediaPipe 推論 → 5クラスへ統合
-// ============================================================
+  let facingMode = "user";  
+  const val = cameraSelect.value;
+  if (val.startsWith("back")) facingMode = { exact: "environment" };
 
-function classify(label) {
-  label = label.toLowerCase();
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode }
+  });
 
-  if (label.includes("pen") || label.includes("pencil") || label.includes("scissors") ||
-      label.includes("marker") || label.includes("tooth") || label.includes("spoon"))
-    return "pen";
+  video.srcObject = stream;
+  await video.play();
 
-  if (label.includes("phone") || label.includes("cell") || label.includes("remote"))
-    return "phone";
-
-  if (label.includes("key"))
-    return "key";
-
-  if (label.includes("egg") || label.includes("orange"))
-    return "egg";
-
-  return "basic";
+  statusEl.textContent = "Camera started.";
+  if (!analyzing) {
+    analyzing = true;
+    detectLoop();
+  }
 }
 
-// ============================================================
-// 推論ループ（5Hz）
-// ============================================================
+startBtn.onclick = startCamera;
 
-async function processFrame() {
+/* ============================
+   Load COCO Detector
+============================ */
+async function loadModel() {
+  statusEl.textContent = "Loading COCO model...";
+  detector = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+  statusEl.textContent = "COCO model loaded.";
+  overlayHud.textContent = "COCO-SSD loaded.";
+}
+loadModel();
 
-  let now = performance.now();
-  if (now < freezeUntil) {
-    setTimeout(processFrame, FRAME_INTERVAL);
+/* ============================
+   Detection categories
+============================ */
+function mapCategory(name) {
+  name = name.toLowerCase();
+
+  if (["pencil","pen","toothbrush"].includes(name)) return "pen";
+  if (["cell phone","mobile phone","phone"].includes(name)) return "phone";
+  if (["key","remote","coin"].includes(name)) return "key";
+
+  return "none"; 
+}
+
+/* ============================
+   Main Detection Loop
+============================ */
+async function detectLoop() {
+  const now = performance.now();
+
+  if (lockActive || now < freezeUntil) {
+    overlayHud.textContent = "Frozen...";
+    requestAnimationFrame(detectLoop);
     return;
   }
 
-  if (!detector || !video.videoWidth) {
-    setTimeout(processFrame, FRAME_INTERVAL);
+  if (!video.videoWidth) {
+    requestAnimationFrame(detectLoop);
     return;
   }
 
-  let detections;
-  try {
-    detections = await detector.detect(video);
-  } catch (e) {
-    setTimeout(processFrame, FRAME_INTERVAL);
-    return;
-  }
+  /* Detection */
+  const preds = await detector.detect(video);
+  const scoreThresh = Number(scoreSlider.value) / 100;
+  const maxRes = Number(maxResultsSlider.value);
 
-  let cls = "none";
+  const filtered = preds
+    .filter(p => p.score >= scoreThresh)
+    .slice(0, maxRes);
 
-  if (detections.detections.length > 0) {
-    let best = detections.detections[0];
-    if (best.categories[0].score * 100 >= scoreSlider.value) {
-      cls = classify(best.categories[0].categoryName);
+  let label = "none";
+
+  for (const p of filtered) {
+    const mapped = mapCategory(p.class);
+    if (mapped !== "none") {
+      label = mapped;
+      break;
     }
   }
 
-  // push to history
-  history.push(cls);
-  if (history.length > HISTORY_SIZE) history.shift();
+  detectionHistory.push(label);
+  if (detectionHistory.length > 5) detectionHistory.shift();
 
-  // 3-of-5 rule
-  let counts = {};
-  history.forEach(c => {
-    counts[c] = (counts[c] || 0) + 1;
-  });
+  const countSame = detectionHistory.filter(x => x === label).length;
 
-  let winner = null;
-  for (let k in counts) {
-    if (counts[k] >= 3) winner = k;
+  if (countSame >= 3 && label !== "none") {
+    if (label === "pen") showPen();
+    else if (label === "phone") showPhone();
+    else if (label === "key") showKey();
+
+    freezeUntil = performance.now() + 2000;
+  } else if (label === "none") {
+    showRelaxed();
   }
 
-  if (!lockActive && winner) {
-    if (winner === "pen") showPen();
-    else if (winner === "phone") showPhone();
-    else if (winner === "key") showKey();
-    else if (winner === "egg") showRelaxed();
-    else if (winner === "basic") showRelaxed();
-    freezeUntil = now + FREEZE_MS;
-  }
-
-  setTimeout(processFrame, FRAME_INTERVAL);
+  overlayHud.textContent = `Detections: ${label}`;
+  requestAnimationFrame(detectLoop);
 }
 
-// ============================================================
-// Start Camera Button
-// ============================================================
-
-startBtn.addEventListener("click", async () => {
-  await initDetector();
-  await enumerateCameras();
-  await startCamera();
-  processFrame();
-});
-
-// Slider UI
-scoreSlider.addEventListener("input", () => {
-  scoreValue.textContent = scoreSlider.value + "%";
-});
-maxResultsSlider.addEventListener("input", () => {
+/* ============================
+   UI Sync
+============================ */
+maxResultsSlider.oninput = () => {
   maxResultsValue.textContent = maxResultsSlider.value;
-});
+};
+scoreSlider.oninput = () => {
+  scoreValue.textContent = scoreSlider.value + " %";
+};
