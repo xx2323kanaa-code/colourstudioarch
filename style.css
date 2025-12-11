@@ -1,5 +1,5 @@
 /* =========================================
-   Global Theme (ARCH-style)
+   Global Theme (ARCH-style + Studio UI)
 ========================================= */
 
 body {
@@ -42,7 +42,7 @@ h1, h2, h3 {
   color: #aaa;
 }
 
-/* =============== Menu =============== */
+/* =============== Fold Menu =============== */
 
 #menuWrapper {
   position: relative;
@@ -67,7 +67,7 @@ h1, h2, h3 {
   border: 1px solid #555;
   border-radius: 8px;
   padding: 10px;
-  z-index: 20;
+  z-index: 50;
 }
 
 .hidden {
@@ -89,7 +89,7 @@ h1, h2, h3 {
 }
 
 /* =========================================
-   Main Application Area
+   Main Application
 ========================================= */
 
 #appContainer {
@@ -113,6 +113,7 @@ h1, h2, h3 {
   border-radius: 10px;
 }
 
+/* SVG overlay */
 #overlaySvg {
   position: absolute;
   inset: 0;
@@ -122,7 +123,7 @@ h1, h2, h3 {
 }
 
 /* =========================================
-   Hand SVG (ARCH style)
+   Hand SVG Styling (ARCH style)
 ========================================= */
 
 /* palm + wrist */
@@ -150,13 +151,13 @@ h1, h2, h3 {
   stroke-width: 3;
 }
 
-/* locked fingers (x2 width) */
+/* locked fingers (2x thickness) */
 .locked-fingers .finger,
 .locked-fingers .finger-joint {
   stroke-width: 6;
 }
 
-/* relaxed locked */
+/* relaxed locked mode */
 #handRelaxed.relaxed-locked line,
 #handRelaxed.relaxed-locked rect {
   stroke: #ff0;
@@ -199,7 +200,7 @@ h1, h2, h3 {
   fill: none;
 }
 
-/* hide all SVG except active */
+/* hide inactive hands */
 .hand-svg {
   display: none;
 }
@@ -220,7 +221,7 @@ h1, h2, h3 {
 
 #resultArea {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 #result {
@@ -234,7 +235,7 @@ h1, h2, h3 {
 }
 
 /* =========================================
-   Buttons and Controls
+   Buttons
 ========================================= */
 
 #controlPanel {
@@ -283,7 +284,7 @@ h1, h2, h3 {
 }
 
 /* =========================================
-   Mobile-Friendly
+   Mobile Friendly
 ========================================= */
 
 @media (max-width: 480px) {
