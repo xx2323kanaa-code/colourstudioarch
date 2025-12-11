@@ -1,0 +1,299 @@
+/* =========================================
+   Global Theme (ARCH-style)
+========================================= */
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #111;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  padding: 0;
+}
+
+/* =========================================
+   Top Header (Studio style)
+========================================= */
+
+#topHeader {
+  width: 100%;
+  background: #222;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+#titleArea h1 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+#languageLabel {
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* =============== Menu =============== */
+
+#menuWrapper {
+  position: relative;
+}
+
+#menuToggle {
+  background: #444;
+  color: #fff;
+  border: none;
+  font-size: 20px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#menuPanel {
+  position: absolute;
+  right: 0;
+  margin-top: 6px;
+  width: 220px;
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 20;
+}
+
+.hidden {
+  display: none;
+}
+
+.menu-section {
+  margin-bottom: 12px;
+}
+
+.menu-section h3 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+#menuPanel select,
+#menuPanel input[type="range"] {
+  width: 100%;
+}
+
+/* =========================================
+   Main Application Area
+========================================= */
+
+#appContainer {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* ======== Video + Overlay ======== */
+
+#videoWrapper {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  position: relative;
+}
+
+#video {
+  width: 100%;
+  background: #000;
+  border-radius: 10px;
+}
+
+#overlaySvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* =========================================
+   Hand SVG (ARCH style)
+========================================= */
+
+/* palm + wrist */
+.palm-line {
+  stroke: #fff;
+  stroke-width: 3;
+  fill: none;
+}
+
+.wrist-line {
+  stroke: #fff;
+  stroke-width: 4;
+}
+
+/* fingers */
+.finger {
+  stroke: #ff0;
+  stroke-width: 3;
+  fill: none;
+}
+
+.finger-joint {
+  fill: #000;
+  stroke: #ff0;
+  stroke-width: 3;
+}
+
+/* locked fingers (x2 width) */
+.locked-fingers .finger,
+.locked-fingers .finger-joint {
+  stroke-width: 6;
+}
+
+/* relaxed locked */
+#handRelaxed.relaxed-locked line,
+#handRelaxed.relaxed-locked rect {
+  stroke: #ff0;
+  stroke-width: 6;
+}
+
+#handRelaxed.relaxed-locked circle {
+  stroke: #ff0;
+  stroke-width: 3;
+  fill: #000;
+}
+
+/* object colors */
+.phone-body {
+  fill: #00f;
+  stroke: #00f;
+  stroke-width: 2;
+}
+
+.pen-body {
+  stroke: #0f0;
+  stroke-width: 4;
+  fill: none;
+}
+
+.key-body {
+  fill: #0cf;
+  stroke: #0cf;
+  stroke-width: 2;
+}
+
+.salute-line {
+  stroke: #ccc;
+  stroke-width: 4;
+}
+
+.salute-palm {
+  stroke: #666;
+  stroke-width: 3;
+  fill: none;
+}
+
+/* hide all SVG except active */
+.hand-svg {
+  display: none;
+}
+
+.hand-svg.active {
+  display: block;
+}
+
+/* HUD */
+#overlayHud {
+  fill: #fff;
+  font-size: 12px;
+}
+
+/* =========================================
+   Result Text
+========================================= */
+
+#resultArea {
+  text-align: center;
+  margin-top: 10px;
+}
+
+#result {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+#status {
+  font-size: 13px;
+  color: #ccc;
+}
+
+/* =========================================
+   Buttons and Controls
+========================================= */
+
+#controlPanel {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.sim-btn {
+  width: 58px;
+  height: 50px;
+  margin: 3px;
+  font-size: 12px;
+  background: #444;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#simPen { background: #0f0; color: #000; }
+#simPhone { background: #0af; color: #000; }
+#simKey { background: #fa0; color: #000; }
+#simSalute { background: #f0f; color: #000; }
+
+#miniOpenBtn,
+#lockBtn,
+#relaxBtn {
+  padding: 6px 12px;
+  font-size: 13px;
+  margin: 4px;
+  border-radius: 16px;
+  border: none;
+  background: #555;
+  color: #fff;
+}
+
+#startCameraBtn {
+  margin-top: 10px;
+  padding: 10px 20px;
+  font-size: 15px;
+  background: #0a7;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+/* =========================================
+   Mobile-Friendly
+========================================= */
+
+@media (max-width: 480px) {
+  #topHeader h1 {
+    font-size: 16px;
+  }
+  #menuPanel {
+    width: 200px;
+  }
+  #videoWrapper {
+    max-width: 100%;
+  }
+}
