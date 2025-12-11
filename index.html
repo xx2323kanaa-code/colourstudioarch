@@ -1,30 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Colorful Custom Hand AI Project</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- 外部CSS -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 
-  <!-- TensorFlow.js & COCO-SSD -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+  <!-- MediaPipe Task Vision -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.5/vision_bundle.js"></script>
+
+  <!-- COCO-SSD (TensorFlow.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
 </head>
-
 <body>
 
-<!-- ============================
-     Studio Header
-============================ -->
+<!-- ===========================
+     Top Header
+=========================== -->
 <header id="topHeader">
   <div id="titleArea">
     <h1>Colorful Custom Hand AI Project</h1>
     <div id="languageLabel">Display language: English</div>
   </div>
 
-  <!-- 折りたたみメニュー -->
+  <!-- Fold Menu -->
   <div id="menuWrapper">
     <button id="menuToggle">≡</button>
     <div id="menuPanel" class="hidden">
@@ -41,196 +46,150 @@
       </div>
 
       <div class="menu-section">
-        <h3>Max Results (1–3)</h3>
-        <input type="range" id="maxResults" min="1" max="3" value="3">
-        <span id="maxResultsValue">3</span>
+        <h3>Max Results</h3>
+        <input type="range" id="maxResults" min="1" max="3" value="1">
+        <span id="maxResultsValue">1</span>
       </div>
 
       <div class="menu-section">
         <h3>Score Threshold</h3>
-        <input type="range" id="scoreSlider" min="2" max="30" value="10">
-        <span id="scoreValue">10 %</span>
+        <input type="range" id="scoreSlider" min="2" max="30" value="15">
+        <span id="scoreValue">15%</span>
       </div>
 
       <div class="menu-section">
-        <h3>Frame Rate</h3>
-        <div>5 Hz</div>
-      </div>
-
-      <div class="menu-section">
-        <h3>Detector</h3>
-        <div>COCO-SSD Lite</div>
+        <h3>Freeze Duration</h3>
+        <input type="range" id="freezeSlider" min="2" max="10" value="3">
+        <span id="freezeValue">3 sec</span>
       </div>
 
     </div>
   </div>
 </header>
 
-<!-- ============================
-     Main App Container
-============================ -->
+<!-- ===========================
+     Main Container
+=========================== -->
 <div id="appContainer">
 
+  <!-- ========== Video + Overlay ========== -->
   <div id="videoWrapper">
     <video id="video" autoplay playsinline></video>
+
+    <!-- Overlay: bounding boxes + hand pose -->
+    <canvas id="bboxCanvas"></canvas>
+
     <svg id="overlaySvg" viewBox="0 0 220 220" preserveAspectRatio="xMidYMid meet">
 
-      <!-- ============================
-           Relaxed Hand
-      ============================ -->
+      <!-- RELAXED -->
       <g id="handRelaxed" class="hand-svg active">
-        <g>
-          <rect x="80" y="90" width="60" height="70" rx="20" ry="20" class="palm-line"/>
-          <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
-          <circle cx="110" cy="160" r="4" fill="#ccc"/>
-        </g>
-        <g>
-          <line x1="88" y1="115" x2="70" y2="125" stroke="#ccc" stroke-width="3" fill="none"/>
-          <circle cx="88" cy="115" r="4" fill="#ccc"/>
-          <circle cx="70" cy="125" r="4" fill="#ccc"/>
-          <line x1="96" y1="90" x2="96" y2="65" stroke="#ccc" stroke-width="3" fill="none"/>
-          <circle cx="96" cy="90" r="4" fill="#ccc"/>
-          <circle cx="96" cy="65" r="4" fill="#ccc"/>
-          <line x1="110" y1="88" x2="110" y2="60" stroke="#ccc" stroke-width="3" fill="none"/>
-          <circle cx="110" cy="88" r="4" fill="#ccc"/>
-          <circle cx="110" cy="60" r="4" fill="#ccc"/>
-          <line x1="124" y1="90" x2="124" y2="66" stroke="#ccc" stroke-width="3" fill="none"/>
-          <circle cx="124" cy="90" r="4" fill="#ccc"/>
-          <circle cx="124" cy="66" r="4" fill="#ccc"/>
-          <line x1="136" y1="96" x2="140" y2="75" stroke="#ccc" stroke-width="3" fill="none"/>
-          <circle cx="136" cy="96" r="4" fill="#ccc"/>
-          <circle cx="140" cy="75" r="4" fill="#ccc"/>
-        </g>
+        <!-- palm -->
+        <rect x="80" y="90" width="60" height="70" rx="20" ry="20" class="palm-line" />
+
+        <!-- wrist (2 parallel lines) -->
+        <line x1="100" y1="160" x2="100" y2="188" class="wrist-line" />
+        <line x1="120" y1="160" x2="120" y2="188" class="wrist-line" />
+
+        <!-- knuckle -->
+        <circle cx="110" cy="160" r="4" fill="#ccc" />
+
+        <!-- fingers -->
+        <line x1="96" y1="90"  x2="96"  y2="65" class="finger"/>
+        <circle cx="96" cy="90" r="4" class="finger-joint" />
+        <circle cx="96" cy="65" r="4" class="finger-joint" />
+
+        <line x1="110" y1="88" x2="110" y2="60" class="finger"/>
+        <circle cx="110" cy="88" r="4" class="finger-joint" />
+        <circle cx="110" cy="60" r="4" class="finger-joint" />
+
+        <line x1="124" y1="90" x2="124" y2="66" class="finger"/>
+        <circle cx="124" cy="90" r="4" class="finger-joint" />
+        <circle cx="124" cy="66" r="4" class="finger-joint" />
       </g>
 
-      <!-- ============================
-           Pen Grip
-      ============================ -->
+      <!-- PEN -->
       <g id="handPen" class="hand-svg">
-        <g>
-          <rect x="80" y="95" width="60" height="65" rx="20" ry="20" class="palm-line"/>
-          <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
-          <circle cx="110" cy="160" r="4" fill="#ccc"/>
-        </g>
+        <rect x="80" y="90" width="60" height="70" rx="20" ry="20" class="palm-line" />
 
-        <g id="penFingers">
-          <line x1="100" y1="100" x2="102" y2="70" class="finger"/>
-          <circle cx="100" cy="100" r="4" class="finger-joint"/>
-          <circle cx="102" cy="70"  r="4" class="finger-joint"/>
+        <!-- wrist -->
+        <line x1="100" y1="160" x2="100" y2="188" class="wrist-line" />
+        <line x1="120" y1="160" x2="120" y2="188" class="wrist-line" />
 
-          <line x1="116" y1="100" x2="114" y2="70" class="finger"/>
-          <circle cx="116" cy="100" r="4" class="finger-joint"/>
-          <circle cx="114" cy="70"  r="4" class="finger-joint"/>
+        <circle cx="110" cy="160" r="4" fill="#ccc" />
 
-          <line x1="90" y1="120" x2="98" y2="88" class="finger"/>
-          <circle cx="90" cy="120" r="4" class="finger-joint"/>
-          <circle cx="98" cy="88"  r="4" class="finger-joint"/>
+        <!-- fingers -->
+        <line x1="100" y1="100" x2="102" y2="70" class="finger"/>
+        <circle cx="100" cy="100" r="4" class="finger-joint"/>
+        <circle cx="102" cy="70"  r="4" class="finger-joint"/>
 
-          <line x1="126" y1="110" x2="132" y2="90" class="finger"/>
-          <circle cx="126" cy="110" r="4" class="finger-joint"/>
-          <circle cx="132" cy="90"  r="4" class="finger-joint"/>
+        <line x1="116" y1="100" x2="114" y2="70" class="finger"/>
+        <circle cx="116" cy="100" r="4" class="finger-joint"/>
+        <circle cx="114" cy="70"  r="4" class="finger-joint"/>
 
-          <line x1="136" y1="120" x2="142" y2="102" class="finger"/>
-          <circle cx="136" cy="120" r="4" class="finger-joint"/>
-          <circle cx="142" cy="102" r="4" class="finger-joint"/>
-
-          <line id="penLine" x1="100" y1="80" x2="116" y2="118" class="pen-body"/>
-        </g>
+        <!-- pen object -->
+        <line x1="100" y1="80" x2="118" y2="120" class="pen-body" />
       </g>
 
-      <!-- ============================
-           Phone Hold
-      ============================ -->
+      <!-- PHONE -->
       <g id="handPhone" class="hand-svg">
-        <g>
-          <rect id="phoneRect" x="92" y="60" width="50" height="90" rx="8" ry="8" class="phone-body"/>
-          <rect x="80" y="95" width="60" height="65" rx="20" ry="20" class="palm-line"/>
-          <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
-          <circle cx="110" cy="160" r="4" fill="#ccc"/>
-        </g>
+        <!-- phone -->
+        <rect x="92" y="60" width="50" height="90" rx="8" ry="8" class="phone-body" />
 
-        <g id="phoneFingers">
-          <line x1="90" y1="130" x2="90" y2="110" class="finger"/>
-          <circle cx="90" cy="130" r="4" class="finger-joint"/>
-          <circle cx="90" cy="110" r="4" class="finger-joint"/>
+        <!-- palm -->
+        <rect x="80" y="95" width="60" height="65" rx="20" ry="20" class="palm-line" />
 
-          <line x1="142" y1="80" x2="148" y2="70" class="finger"/>
-          <circle cx="142" cy="80" r="4" class="finger-joint"/>
-          <circle cx="148" cy="70" r="4" class="finger-joint"/>
+        <!-- wrist -->
+        <line x1="100" y1="160" x2="100" y2="188" class="wrist-line" />
+        <line x1="120" y1="160" x2="120" y2="188" class="wrist-line" />
 
-          <line x1="144" y1="94" x2="150" y2="84" class="finger"/>
-          <circle cx="144" cy="94" r="4" class="finger-joint"/>
-          <circle cx="150" cy="84" r="4" class="finger-joint"/>
-
-          <line x1="146" y1="108" x2="152" y2="98" class="finger"/>
-          <circle cx="146" cy="108" r="4" class="finger-joint"/>
-          <circle cx="152" cy="98" r="4" class="finger-joint"/>
-
-          <line x1="144" y1="122" x2="150" y2="112" class="finger"/>
-          <circle cx="144" cy="122" r="4" class="finger-joint"/>
-          <circle cx="150" cy="112" r="4" class="finger-joint"/>
-        </g>
+        <circle cx="110" cy="160" r="4" fill="#ccc" />
       </g>
 
-      <!-- ============================
-           KEY (ARCH 完全修復)
-      ============================ -->
+      <!-- KEY -->
       <g id="handKey" class="hand-svg">
-        <g>
-          <rect x="80" y="95" width="60" height="65" rx="20" ry="20" class="palm-line"/>
-          <line x1="110" y1="160" x2="110" y2="190" class="wrist-line"/>
-          <circle cx="110" cy="160" r="4" fill="#ccc"/>
-        </g>
+        <rect x="80" y="95" width="60" height="65" rx="20" ry="20" class="palm-line" />
 
-        <g id="keyFingers">
-          <line x1="108" y1="100" x2="132" y2="102" class="finger"/>
-          <circle cx="108" cy="100" r="4" class="finger-joint"/>
-          <circle cx="132" cy="102" r="4" class="finger-joint"/>
+        <!-- wrist -->
+        <line x1="100" y1="160" x2="100" y2="188" class="wrist-line" />
+        <line x1="120" y1="160" x2="120" y2="188" class="wrist-line" />
 
-          <line x1="110" y1="108" x2="135" y2="112" class="finger"/>
-          <circle cx="110" cy="108" r="4" class="finger-joint"/>
-          <circle cx="135" cy="112" r="4" class="finger-joint"/>
+        <circle cx="110" cy="160" r="4" fill="#ccc" />
 
-          <line x1="112" y1="118" x2="132" y2="122" class="finger"/>
-          <circle cx="112" cy="118" r="4" class="finger-joint"/>
-          <circle cx="132" cy="122" r="4" class="finger-joint"/>
+        <!-- corrected KEY finger layout -->
+        <line x1="108" y1="100" x2="132" y2="102" class="finger"/>
+        <circle cx="108" cy="100" r="4" class="finger-joint"/>
+        <circle cx="132" cy="102" r="4" class="finger-joint"/>
 
-          <rect id="keyObject" x="60" y="112" width="26" height="4" class="key-body"/>
-          <rect id="keyThumbBlock" x="86" y="105" width="20" height="18" rx="9" ry="9" class="key-body"/>
-        </g>
+        <line x1="110" y1="108" x2="135" y2="112" class="finger"/>
+        <circle cx="110" cy="108" r="4" class="finger-joint"/>
+        <circle cx="135" cy="112" r="4" class="finger-joint"/>
+
+        <!-- key body -->
+        <rect x="60" y="112" width="26" height="4" class="key-body"/>
+        <rect x="86" y="105" width="20" height="18" rx="9" ry="9" class="key-body"/>
       </g>
 
-      <!-- ============================
-           SALUTE
-      ============================ -->
+      <!-- SALUTE -->
       <g id="handSalute" class="hand-svg">
-        <g>
-          <line x1="110" y1="150" x2="110" y2="190" class="salute-line"/>
-          <circle cx="110" cy="150" r="4" fill="#ccc"/>
-          <rect x="90" y="80" width="50" height="70" rx="12" ry="12" class="salute-palm"/>
-        </g>
-        <g>
-          <line x1="96" y1="80" x2="96" y2="40" class="salute-line"/>
-          <line x1="106" y1="80" x2="106" y2="40" class="salute-line"/>
-          <line x1="116" y1="80" x2="116" y2="40" class="salute-line"/>
-          <line x1="126" y1="80" x2="126" y2="40" class="salute-line"/>
-          <line x1="90" y1="95" x2="80" y2="125" stroke="#ccc" stroke-width="3"/>
-          <circle cx="80" cy="125" r="4" fill="#ccc"/>
-        </g>
+        <rect x="90" y="80" width="50" height="70" rx="12" ry="12" class="salute-palm"/>
+
+        <!-- wrist -->
+        <line x1="100" y1="150" x2="100" y2="188" class="wrist-line" />
+        <line x1="120" y1="150" x2="120" y2="188" class="wrist-line" />
       </g>
 
-      <!-- HUD -->
-      <text id="overlayHud" x="110" y="210" text-anchor="middle">COCO-SSD Loaded</text>
+      <text id="overlayHud" x="110" y="210" text-anchor="middle">---</text>
     </svg>
-  </div>
 
-  <!-- Result Text -->
+  </div>
+  <!-- ===========================
+       Result & Controls
+  =========================== -->
   <div id="resultArea">
     <div id="result">State: RELAXED</div>
-    <div id="status">Ready</div>
+    <div id="status">Ready.</div>
   </div>
 
-  <!-- ARCH Buttons -->
   <div id="controlPanel">
     <button id="simNone" class="sim-btn">None</button>
     <button id="simPen" class="sim-btn">Pen</button>
@@ -238,20 +197,23 @@
     <button id="simKey" class="sim-btn">Key</button>
     <button id="simSalute" class="sim-btn">Salute</button>
 
-    <br>
+    <br />
 
     <button id="miniOpenBtn">Mini-Open</button>
     <button id="lockBtn">Lock</button>
-    <button id="relaxBtn">Relax</button>
+    <button id="relaxBtn">Full Relax</button>
 
-    <br>
+    <br />
 
-    <button id="startCameraBtn">Start / Retry Camera</button>
+    <button id="startCameraBtn">Start Camera</button>
   </div>
 
-</div>
+</div> <!-- end of appContainer -->
 
-<!-- 外部JS -->
+
+<!-- ===========================
+     JavaScript
+=========================== -->
 <script src="app.js"></script>
 
 </body>
